@@ -1,0 +1,197 @@
+/*
+ * File:   LOCK.c
+ * Author: prith
+ *
+ * Created on 29 December, 2024, 7:16 PM
+ */
+
+
+#include <xc.h>
+#define _XTAL_FREQ 4000000
+#define RS RE0  // Define pin connections for LCD control signals
+#define RW RE2
+#define EN RE1
+#define LCD PORTD // Define data port for LCD communication 
+#define p 1
+#define a1 2
+#define s1 3
+#define s2 4
+
+void delay(unsigned int d) { // Simple delay function
+    while (d--);
+}
+
+void pulse() 
+{ 
+    EN = 1;
+    delay(1000);
+    EN = 0;
+    delay(1000);
+}
+
+
+
+void type() 
+{
+    RS = 0;     // Select command register
+    RW = 0;     // Set write operation
+    LCD = 0x38;
+    
+    pulse();
+}
+
+
+void clear() 
+{
+    RS = 0;     // Select command register
+    RW = 0;     // Set write operation
+    LCD = 0x01;
+    
+    pulse();
+}
+
+
+void on() 
+{
+    RS = 0;     // Select command register
+    RW = 0;     // Set write operation
+    LCD = 0x0E; 
+    pulse();
+}
+
+void one()
+{
+    RS = 0;     // Select command register
+    RW = 0;     // Set write operation
+    LCD = 0x1C; 
+    pulse();
+}
+
+void dec()
+{ 
+    RS = 0;     // Select command register
+    RW = 0;     // Set write operation
+    LCD = 0X06; // Send set DDRAM address command
+    pulse();
+}
+
+void address()
+{ 
+    RS = 0;     // Select command register
+    RW = 0;     // Set write operation
+    LCD = 0X80; // Send set DDRAM address command
+    pulse();
+}
+
+void address1()
+{ 
+    RS = 0;     // Select command register
+    RW = 0;     // Set write operation
+    LCD = 0XC2;// Send set DDRAM address command
+    pulse();
+}
+
+
+void data(char data)
+{ 
+
+    RS = 1;     // Select data register
+    RW = 0;    // Set write operation       
+    LCD = data;  // Send the character 'B'
+    pulse();
+     
+    
+}
+
+
+void word(char *str)
+{ 
+    while(*str)
+    {
+        data(*str++);
+    }
+}
+
+int keypad()
+{
+    PORTB = 0x00;  // Clear PORTB
+    TRISB = 0x0F;  // Set lower 4 pins (RB0-RB3) as inputs, upper 4 as outputs
+    ANSEL = 0;     // Disable analog on PORTB
+    ANSELH = 0;
+
+    while(1)
+    {
+        // Column 1 - RB4 = 1, others are 0
+        RB4 = 1; RB5 = 0; RB6 = 0; RB7 = 0;  // Activate column 1
+        if (RB0 == 1) { __delay_ms(20); address1(); word("7"); return 7; }
+        if (RB1 == 1) { __delay_ms(20); address1(); word("4"); return 4; }
+        if (RB2 == 1) { __delay_ms(20); address1(); word("1"); return 1; }
+        if (RB3 == 1) { __delay_ms(20); address1(); word("*"); return 10; }
+
+        // Column 2 - RB5 = 1, others are 0
+        RB4 = 0; RB5 = 1; RB6 = 0; RB7 = 0;  // Activate column 2
+        if (RB0 == 1) { __delay_ms(20); address1(); word("8"); return 8; }
+        if (RB1 == 1) { __delay_ms(20); address1(); word("5"); return 5; }
+        if (RB2 == 1) { __delay_ms(20); address1(); word("2"); return 2; }
+        if (RB3 == 1) { __delay_ms(20); address1(); word("0"); return 0; }
+
+        // Column 3 - RB6 = 1, others are 0
+        RB4 = 0; RB5 = 0; RB6 = 1; RB7 = 0;  // Activate column 3
+        if (RB0 == 1) { __delay_ms(20); address1(); word("9"); return 9; }
+        if (RB1 == 1) { __delay_ms(20); address1(); word("6"); return 6; }
+        if (RB2 == 1) { __delay_ms(20); address1(); word("3"); return 3; }
+        if (RB3 == 1) { __delay_ms(20); address1(); word("#"); return 11; }
+
+        // Column 4 - RB7 = 1, others are 0
+        RB4 = 0; RB5 = 0; RB6 = 0; RB7 = 1;  // Activate column 4
+        if (RB0 == 1) { __delay_ms(20); address1(); word('A'); return 12; }
+        if (RB1 == 1) { __delay_ms(20); address1(); word('B'); return 13; }
+        if (RB2 == 1) { __delay_ms(20); address1(); word('C'); return 14; }
+        if (RB3 == 1) { __delay_ms(20); address1(); word('D'); return 15; }
+    }
+}
+
+
+void main(void) {
+    PORTC=TRISC=0X00;
+    PORTD = 0x00; 
+    TRISD = 0x00;
+    PORTE = 0x00; 
+    TRISE = 0x00; 
+    ANSEL=ANSELH= 0x00; 
+    int a, b, c,d;
+     type();
+    on();
+    address();
+    word("ENTER THE PASSWORD");
+    while(1){
+    // Wait for user to enter 4 digits
+    a = keypad();  // Get first digit
+    __delay_ms(500); // Add delay to avoid multiple key presses
+    b = keypad();  // Get second digit
+    __delay_ms(500); // Add delay to avoid multiple key presses
+    c = keypad();  // Get third digit
+    __delay_ms(500); // Add delay to avoid multiple key presses
+    d = keypad();  // Get fourth digit
+    __delay_ms(500); // Add delay to avoid multiple key presses
+
+    // Compare entered password
+    if (a == p && b == a1 && c == s1 && d == s2)
+    {
+        RC0=1;
+        clear();
+        address();
+        word("CORRECT PASSWORD");
+        __delay_ms(500);
+    }
+    else
+    {
+        RC0=0;
+        clear();
+        address();
+        word("WRONG PASSWORD");
+        __delay_ms(500);
+    }
+    }
+    return;
+}
